@@ -1,0 +1,182 @@
+syntax = "proto3";
+
+package api.user.v1;
+
+import "google/protobuf/timestamp.proto";
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "validate/validate.proto";
+import "errors/errors.proto";
+
+option go_package = "github.com/Allen-Career-Institute/go-kratos-sample/api/user/v1;v1";
+option java_multiple_files = true;
+option java_package = "api.user.v1";
+option java_outer_classname = "UserProtoV1";
+
+service User {
+	rpc CreateUser (CreateUserRequest) returns (CreateUserReply) {
+		option (google.api.http) = {
+			post: "/v1/users"
+			body: "*"
+		};
+	};
+	rpc UpdateUser (UpdateUserRequest) returns (UpdateUserReply){
+		option (google.api.http) = {
+			put: "/v1/users"
+			body: "*"
+		};
+	};
+	rpc DeleteUser (DeleteUserRequest) returns (DeleteUserReply) {
+		option (google.api.http) = {
+			delete: "/v1/users"
+		};
+	};
+	rpc GetUser (GetUserRequest) returns (GetUserReply) {
+		option (google.api.http) = {
+			get: "/v1/users/*"
+		};
+	};
+	rpc ListUser (ListUserRequest) returns (ListUserReply) {
+		option (google.api.http) = {
+			get: "/v1/users"
+		};
+	};
+}
+
+// User related data types.
+message UserInfo {
+
+	// User unique identifier.
+	string name = 1;
+
+	// Mobile number associated with the user, non editable.
+	string mobile_number = 2;
+
+	// Given name of the user, editable.
+	string given_name = 3;
+
+	// Family name of the user, editable.
+	string family_name = 4;
+
+	// Status of the user.
+	Status status = 5;
+
+	// Creation time.
+	google.protobuf.Timestamp created_at = 6;
+
+	// Updation time.
+	google.protobuf.Timestamp updated_at = 7;
+}
+
+// Enumeration representing the user status.
+enum Status {
+	// Unspecified.
+	STATUS_UNSPECIFIED = 0;
+
+	// User is invited but did not yet register.
+	STATUS_INVITED = 1;
+
+	// User is created.
+	STATUS_CREATED = 2;
+
+	// User is registered and active.
+	STATUS_ACTIVE = 3;
+
+	// User is suspended for some reason.
+	STATUS_SUSPENDED = 4;
+
+	// User is not active.
+	STATUS_INACTIVE = 5;
+
+	// User is banned.
+	STATUS_BANNED = 6;
+}
+
+message CreateUserRequest {
+	// Mobile number of the user.
+	string mobile_number = 1[(google.api.field_behavior) = REQUIRED,
+		(validate.rules).string = {pattern: "^[1-9]{1}[0-9]{9}$", len: 10}];
+
+	// Name of the user.
+	string given_name = 2;
+
+	// Family name of the user.
+	string family_name = 3;
+}
+
+message CreateUserReply {
+	// User object saved in the backend.
+	UserInfo user_info = 1;
+}
+
+message UpdateUserRequest {
+	// The name/unique-identifier of the user to retrieve.
+	// Format: users/{user}
+	string name = 1 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {uuid: true}];
+
+	// Name of the user.
+	string given_name = 2;
+
+	// Family name of the user.
+	string family_name = 3;
+}
+message UpdateUserReply {
+	// User object saved in the backend.
+	UserInfo user_info = 1;
+}
+
+message DeleteUserRequest {
+	// The name/unique-identifier of the user to retrieve.
+	// Format: users/{user}
+	string name = 1 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {uuid: true}];
+
+	// Optional. The etag of the book.
+	// If this is provided, it must match the server's etag.
+	string etag = 2;
+}
+message DeleteUserReply {
+	bool result = 1;
+}
+
+message GetUserRequest {
+	// The name/unique-identifier of the user to retrieve.
+	// Format: users/{user}
+	string name = 1 [(google.api.field_behavior) = REQUIRED, (validate.rules).string = {uuid: true}];
+}
+message GetUserReply {
+	// User object saved in the backend.
+	UserInfo user_info = 1;
+}
+
+message ListUserRequest {
+	// The maximum number of users to return. The service may return fewer than
+	// this value.
+	// If unspecified, at most 50 books will be returned.
+	// The maximum value is 1000; values above 1000 will be coerced to 1000.
+	int32 page_size = 1;
+
+	// A page token, received from a previous `ListUsers` call.
+	// Provide this to retrieve the subsequent page.
+	//
+	// When paginating, all other parameters provided to `ListUsers` must match
+	// the call that provided the page token.
+	string page_token = 2;
+
+}
+message ListUserReply {
+	// User object saved in the backend.
+	repeated UserInfo users = 1;
+
+	// A token, which can be sent as `page_token` to retrieve the next page.
+	// If this field is omitted, there are no subsequent pages.
+	string next_page_token = 2;
+}
+
+enum ErrorReason {
+	// Set default error code.
+	option (errors.default_code) = 500;
+	USER_UNSPECIFIED = 0 [(errors.code) = 500];
+	USER_NOT_FOUND = 1 [(errors.code) = 404];
+	USER_NOT_CREATED = 2 [(errors.code) = 400];
+	USER_ALREADY_EXIST = 3[(errors.code) = 400];
+}

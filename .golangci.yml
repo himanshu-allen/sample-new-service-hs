@@ -1,0 +1,56 @@
+linters:
+  enable:
+    - errcheck
+    - gofmt
+    - govet
+    - staticcheck
+    - stylecheck
+    - typecheck
+    - unconvert
+    - unused
+    - wastedassign
+    - cyclop
+  enable-all: false
+  disable-all: true
+  fast: false
+
+run:
+  go: "1.18"
+  timeout: 10m
+  skip-dirs:
+    - node_modules
+    - public
+    - web_src
+  skip-files:
+    - user.pb.validate.go
+
+linters-settings:
+  cyclop:
+    max-complexity: 20
+
+
+
+  stylecheck: # Ignore Incorrectly formatted error string (ST1005) and Poorly chosen identifier(ST1003)
+    checks: ["all", "-ST1003", "-ST1005"]
+
+  output:
+    # colored-line-number|line-number|json|tab|checkstyle|code-climate,
+    # default is "colored-line-number"
+    format: colored-line-number
+    # print lines of code with issue, default is true
+    print-issued-lines: true
+    # print linter name in the end of issue text, default is true
+    print-linter-name: true
+
+issues:
+  max-issues-per-linter: 100
+  max-same-issues: 100
+  exclude-rules:
+    # Exclude some linters from running on tests files.
+    - path: _test\.go
+      linters:
+        - errcheck
+        - staticcheck
+    - path: ./
+      linters:
+        - typecheck

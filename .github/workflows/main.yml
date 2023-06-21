@@ -1,0 +1,215 @@
+on:
+  push:
+    branches:
+      - master
+
+name: Build and Deploy to Amazon ECS
+
+jobs:
+  build:
+    name: Build
+    runs-on: self-hosted
+    env:
+      GOPRIVATE: https://github.com/Allen-Career-Institute/go-kratos-sample
+      GH_ACCESS_TOKEN: ${{ secrets.GIT_TOKEN }}
+    strategy:
+      matrix:
+        go-version: [ 1.19 ]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          persist-credentials: false # otherwise, the token used is the GITHUB_TOKEN, instead of your personal access token.
+          fetch-depth: 0 # otherwise, there would be errors pushing refs to the destination repository.
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "branch=$(echo ${GITHUB_REF#refs/heads/})" >>$GITHUB_OUTPUT
+        id: extract_branch
+
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Build
+        run: |
+          git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+          make all
+
+      - name: Run Test
+        run: |
+          git config --global url.https://$GH_ACCESS_TOKEN@github.com/.insteadOf https://github.com/
+          go test -v ./... -covermode=count -coverprofile=coverage.out
+          go test -v ./... -covermode=count -coverprofile=sonar_coverage.out
+
+  coverage:
+    name: Coverage
+    runs-on: self-hosted
+    env:
+      GOPRIVATE: https://github.com/Allen-Career-Institute/go-kratos-sample
+      GH_ACCESS_TOKEN: ${{ secrets.GIT_TOKEN }}
+
+    needs:
+      - build
+    strategy:
+      matrix:
+        go-version: [ 1.19 ]
+    steps:
+      - name: Go Coverage Badge  # Pass the `coverage.out` output to this action
+        uses: tj-actions/coverage-badge-go@v2
+        with:
+          filename: coverage.out
+
+      - name: Verify Changed files
+        uses: tj-actions/verify-changed-files@v12
+        id: verify-changed-files
+        with:
+          files: README.md
+
+      - name: Commit changes
+        if: steps.verify-changed-files.outputs.files_changed == 'true'
+        run: |
+          git config --local user.name  ${{ github.actor }}
+          git add README.md
+          git commit -m "chore: Updated coverage badge."
+
+      - name: Push changes
+        if: steps.verify-changed-files.outputs.files_changed == 'true'
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GIT_TOKEN }}
+          branch: ${{ steps.extract_branch.outputs.branch }}
+          force: true
+
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: .
+          args: >
+            -Dsonar.projectKey=go-kratos-sample
+            -Dsonar.verbose=true
+            -Dsonar.sources=.
+            -Dsonar.exclusions=**/.github/**,**/*_test.go,*.yml,*.yaml,*.proto,Dockerfile,*.md,*.yaml,**/*.pb.go,**/*.pb.*.go,*.mod,*.json,*.out,Makefile,LICENSE,.gitignore
+            -Dsonar.tests=.
+            -Dsonar.test.inclusions=**/*_test.go
+            -Dsonar.go.coverage.reportPaths=sonar_coverage.out
+
+      - name: Sonar Check
+        continue-on-error: false
+        uses: sonarsource/sonarqube-quality-gate-action@master
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+  deploy_to_test:
+    name: Deploy to Developer environment
+    env:
+      GOPRIVATE: https://github.com/Allen-Career-Institute/go-kratos-sample
+      GH_ACCESS_TOKEN: ${{ secrets.GIT_TOKEN }}
+    needs:
+      - coverage
+    runs-on: self-hosted
+    strategy:
+      matrix:
+        go-version: [ 1.19 ]
+
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Create Pre-required AWS Resources
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        with:
+          name: backend-services-base-resources
+          template: aws-prerequisite-resources-template.yml
+          no-fail-on-empty-changeset: "1"
+          termination-protection: '1'
+          capabilities: CAPABILITY_NAMED_IAM
+          parameter-overrides: >-
+            DBClusterIdentifier=allendigital,
+            DBName=usersdb,
+            Subnet1Id=${{ secrets.SUBNET1 }},
+            Subnet2Id=${{ secrets.SUBNET2 }},
+            Subnet3Id=${{ secrets.SUBNET3 }},
+            SecurityGroups=${{ secrets.SECURITY_GROUP }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: allen_backend_registry
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build --build-arg GIT_TOKEN=$GH_ACCESS_TOKEN -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+
+
+      - name: Create cloud resources
+        uses: aws-actions/aws-cloudformation-github-deploy@v1
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: allen_backend_registry
+          IMAGE_TAG: ${{ github.sha }}
+        with:
+          name: backend-service-stack
+          template: fargate-template.yml
+          no-fail-on-empty-changeset: "1"
+          termination-protection: '1'
+          capabilities: CAPABILITY_NAMED_IAM
+          parameter-overrides: >-
+            StackName=EC2ContainerService-default,
+            ImageUrl=${{ steps.build-image.outputs.image }},
+            Subnet1Id=${{ secrets.SUBNET1 }},
+            Subnet2Id=${{ secrets.SUBNET2 }},
+            Subnet3Id=${{ secrets.SUBNET3 }},
+            SecurityGroups=${{ secrets.SECURITY_GROUP }}
+
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-def.json
+          container-name: allen-backend-services
+          image: ${{ steps.build-image.outputs.image }}
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          cluster: allen_backend_cluster
+          wait-for-service-stability: false
+
+
+#  manual_approval:
+#    name: Approval for prod
+#    needs:
+#      - coverage
+#    steps:
+#      - uses: trstringer/manual-approval@v1
+#        with:
+#          secret: ${{ github.TOKEN }}
+#          approvers: kameshraoyeduvakula,rajnish-allen,NaveenAllen
+#          minimum-approvals: 1
+#          issue-title: "Deploying v1.3.5 to prod from staging"
+#          issue-body: "Please approve or deny the deployment of version v1.3.5."
+#          exclude-workflow-initiator-as-approver: false
+#          additional-approved-words: ''
+#          additional-denied-words: ''
+
+

@@ -1,0 +1,197 @@
+# Generated with protoc-gen-openapi
+# https://github.com/google/gnostic/tree/master/cmd/protoc-gen-openapi
+
+openapi: 3.0.3
+info:
+    title: User API
+    version: 0.0.1
+paths:
+    /v1/users:
+        get:
+            tags:
+                - User
+            operationId: User_ListUser
+            parameters:
+                - name: pageSize
+                  in: query
+                  description: The maximum number of users to return. The service may return fewer than this value. If unspecified, at most 50 books will be returned. The maximum value is 1000; values above 1000 will be coerced to 1000.
+                  schema:
+                    type: integer
+                    format: int32
+                - name: pageToken
+                  in: query
+                  description: A page token, received from a previous `ListUsers` call. Provide this to retrieve the subsequent page. When paginating, all other parameters provided to `ListUsers` must match the call that provided the page token.
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.ListUserReply'
+        put:
+            tags:
+                - User
+            operationId: User_UpdateUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.UpdateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.UpdateUserReply'
+        post:
+            tags:
+                - User
+            operationId: User_CreateUser
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/api.user.v1.CreateUserRequest'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.CreateUserReply'
+        delete:
+            tags:
+                - User
+            operationId: User_DeleteUser
+            parameters:
+                - name: name
+                  in: query
+                  description: 'The name/unique-identifier of the user to retrieve. Format: users/{user}'
+                  schema:
+                    type: string
+                - name: etag
+                  in: query
+                  description: Optional. The etag of the book. If this is provided, it must match the server's etag.
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.DeleteUserReply'
+    /v1/users/*:
+        get:
+            tags:
+                - User
+            operationId: User_GetUser
+            parameters:
+                - name: name
+                  in: query
+                  description: 'The name/unique-identifier of the user to retrieve. Format: users/{user}'
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/api.user.v1.GetUserReply'
+components:
+    schemas:
+        api.user.v1.CreateUserReply:
+            type: object
+            properties:
+                userInfo:
+                    $ref: '#/components/schemas/api.user.v1.UserInfo'
+        api.user.v1.CreateUserRequest:
+            required:
+                - mobileNumber
+            type: object
+            properties:
+                mobileNumber:
+                    type: string
+                    description: Mobile number of the user.
+                givenName:
+                    type: string
+                    description: Name of the user.
+                familyName:
+                    type: string
+                    description: Family name of the user.
+        api.user.v1.DeleteUserReply:
+            type: object
+            properties:
+                result:
+                    type: boolean
+        api.user.v1.GetUserReply:
+            type: object
+            properties:
+                userInfo:
+                    $ref: '#/components/schemas/api.user.v1.UserInfo'
+        api.user.v1.ListUserReply:
+            type: object
+            properties:
+                users:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/api.user.v1.UserInfo'
+                    description: User object saved in the backend.
+                nextPageToken:
+                    type: string
+                    description: A token, which can be sent as `page_token` to retrieve the next page. If this field is omitted, there are no subsequent pages.
+        api.user.v1.UpdateUserReply:
+            type: object
+            properties:
+                userInfo:
+                    $ref: '#/components/schemas/api.user.v1.UserInfo'
+        api.user.v1.UpdateUserRequest:
+            required:
+                - name
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: 'The name/unique-identifier of the user to retrieve. Format: users/{user}'
+                givenName:
+                    type: string
+                    description: Name of the user.
+                familyName:
+                    type: string
+                    description: Family name of the user.
+        api.user.v1.UserInfo:
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: User unique identifier.
+                mobileNumber:
+                    type: string
+                    description: Mobile number associated with the user, non editable.
+                givenName:
+                    type: string
+                    description: Given name of the user, editable.
+                familyName:
+                    type: string
+                    description: Family name of the user, editable.
+                status:
+                    type: integer
+                    description: Status of the user.
+                    format: enum
+                createdAt:
+                    type: string
+                    description: Creation time.
+                    format: date-time
+                updatedAt:
+                    type: string
+                    description: Updation time.
+                    format: date-time
+            description: User related data types.
+tags:
+    - name: User

@@ -1,0 +1,151 @@
+{
+    "family": "allen-backend-services",
+    "executionRoleArn": "arn:aws:iam::274524495977:role/ecsTaskExecutionRole",
+    "containerDefinitions": [
+        {
+            "name": "allen-backend-services",
+            "image": "274524495977.dkr.ecr.ap-south-1.amazonaws.com/allen_backend_registry:latest",
+            "cpu": 819,
+            "memory": 1536,
+            "portMappings": [
+                {
+                    "name": "allen-backend-services-9000-tcp",
+                    "containerPort": 9000,
+                    "hostPort": 9000,
+                    "protocol": "tcp",
+                    "appProtocol": "grpc"
+                },
+                {
+                    "name": "allen-backend-services-8000-tcp",
+                    "containerPort": 8000,
+                    "hostPort": 8000,
+                    "protocol": "tcp",
+                    "appProtocol": "http"
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "environment": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "dependsOn": [
+                {
+                    "containerName": "aws-otel-collector",
+                    "condition": "START"
+                }
+            ],
+            "memory": 2048,
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/fargate/allenBackend",
+                    "awslogs-region": "ap-south-1",
+                    "awslogs-stream-prefix": "allen"
+                }
+            }
+        },
+        {
+            "name": "aws-otel-collector",
+            "image": "amazon/aws-otel-collector",
+            "cpu": 201,
+            "memory": 512,
+            "portMappings": [
+                {
+                    "containerPort": 2000,
+                    "hostPort": 2000,
+                    "protocol": "udp"
+                },
+                {
+                    "containerPort": 4317,
+                    "hostPort": 4317,
+                    "protocol": "tcp"
+                },
+                {
+                    "containerPort": 8125,
+                    "hostPort": 8125,
+                    "protocol": "udp"
+                },
+                {
+                    "containerPort": 4318,
+                    "hostPort": 4318,
+                    "protocol": "tcp"
+                }
+            ],
+            "essential": true,
+            "command": [
+                "--config=/etc/ecs/ecs-default-config.yaml"
+            ],
+            "environment": [],
+            "mountPoints": [],
+            "volumesFrom": [],
+            "logConfiguration": {
+                "logDriver": "awslogs",
+                "options": {
+                    "awslogs-group": "/fargate/allenBackend",
+                    "awslogs-region": "ap-south-1",
+                    "awslogs-stream-prefix": "aws-otel-collector"
+                }
+            },
+            "healthCheck": {
+                "command": [
+                    "/healthcheck"
+                ],
+                "interval": 5,
+                "timeout": 6,
+                "retries": 5,
+                "startPeriod": 1
+            }
+        }
+    ],
+    "family": "allen-backend-services",
+    "executionRoleArn": "arn:aws:iam::274524495977:role/ecsTaskExecutionRole",
+    "networkMode": "awsvpc",
+    "revision": 45,
+    "volumes": [],
+    "status": "ACTIVE",
+    "requiresAttributes": [
+        {
+            "name": "com.amazonaws.ecs.capability.logging-driver.awslogs"
+        },
+        {
+            "name": "ecs.capability.execution-role-awslogs"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.ecr-auth"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.19"
+        },
+        {
+            "name": "ecs.capability.container-ordering"
+        },
+        {
+            "name": "ecs.capability.container-health-check"
+        },
+        {
+            "name": "ecs.capability.execution-role-ecr-pull"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.18"
+        },
+        {
+            "name": "ecs.capability.task-eni"
+        },
+        {
+            "name": "com.amazonaws.ecs.capability.docker-remote-api.1.29"
+        }
+    ],
+    "placementConstraints": [],
+    "compatibilities": [
+        "EC2",
+        "FARGATE"
+    ],
+    "requiresCompatibilities": [
+        "FARGATE"
+    ],
+    "cpu": "1024",
+    "memory": "2048",
+    "registeredAt": "2023-06-12T08:30:45.201Z",
+    "registeredBy": "arn:aws:iam::274524495977:user/jaya.mandava@allendigital.in",
+    "tags": []
+}
